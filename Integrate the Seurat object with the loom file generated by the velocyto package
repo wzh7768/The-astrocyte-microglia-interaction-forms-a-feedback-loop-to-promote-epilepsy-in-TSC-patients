@@ -1,0 +1,41 @@
+#sample TSC1
+data_dir_TSC1 <- '/home/weizhihao/Desktop/TSC1_dat/filtered_feature_bc_matrix'
+list.files(data_dir_TSC1)
+expression_matrix <- Read10X(data.dir = data_dir_TSC1)
+abc = CreateSeuratObject(counts = expression_matrix,project="TSC1")
+#Filter cells
+drop_mt <- function(data) {
+mts <- grep(pattern = "^MT-", x = rownames(x = data), value = TRUE)
+percent.mt <- Matrix::colSums(data[mts, ])/Matrix::colSums(data)
+mt.index <- grep(pattern = "^MT-", x = rownames(x = data), value = FALSE)
+data_1 <- data[-mt.index,]
+return(data_1)
+}
+abc_dropmt <- drop_mt(abc)
+abc_filtered <- subset(x=abc_dropmt, subset = nFeature_RNA < 5000 & nFeature_RNA > 200)
+TSC1 <- abc_filtered
+#Read the loom file
+velo_TSC1 <- read.loom.matrices('/home/weizhihao/Desktop/TSC1_dat/TSC1.loom')
+spliced <- velo_TSC1[['spliced']]
+#View the gene names
+x <- rownames(spliced)
+y <- rownames(TSC1)
+#View the cell names
+p <- colnames(spliced)
+q <- colnames(TSC1)
+#Align the cell names and gene names between the loom object and Seurat
+colnames(velo_TSC1$spliced) <- gsub('TSC1:','',colnames(velo_TSC1$spliced))
+colnames(velo_TSC1$spliced) <- gsub('x','',colnames(velo_TSC1_1$spliced))
+colnames(velo_TSC1$spliced) <- paste0(colnames(velo_TSC1$spliced),"-1")
+colnames(velo_TSC1$unspliced) <- colnames(velo_TSC1$spliced)
+colnames(velo_TSC1$ambiguous) <- colnames(velo_TSC1$spliced)
+velo_TSC1$spliced <- velo_TSC1$spliced[,colnames(TSC1)]
+velo_TSC1$spliced <- velo_TSC1_1$spliced[intersect(rownames(TSC1),rownames(velo_TSC1$spliced)),]
+velo_TSC1$unspliced <- velo_TSC1$unspliced[,colnames(TSC1)]
+velo_TSC1$unspliced <- velo_TSC1$unspliced[rownames(velo_TSC1$spliced),]
+velo_TSC1$ambiguous <- velo_TSC1$ambiguous[,colnames(TSC1)]
+velo_TSC1$ambiguous <- velo_TSC1$ambiguous[rownames(velo_TSC1$spliced),]
+TSC1[['spliced']] <- CreateAssayObject(counts=velo_TSC1[['spliced']])
+TSC1[['unspliced']] <- CreateAssayObject(counts=velo_TSC1[['unspliced']])
+TSC1[['ambiguous']] <- CreateAssayObject(counts=velo_TSC1[['ambiguous']])
+save(TSC1,file='/home/weizhihao/Desktop/TSC1_dat/TSC1.Rdata')

@@ -1,0 +1,63 @@
+#CellphoneDB analysis
+#Preparing documents
+write.table(as.matrix(TSC_MA@assays$RNA@data),'cellphonedb_count.txt',sep='\t',quote=F)
+meta_data <- cbind(rownames(TSC_MA@meta.data),TSC_MA@meta.data[,'labers',drop=F])
+meta_data <- as.matrix(meta_data)
+meta_data[is.na(meta_data)]="Unknown"
+write.table(meta_data,'cellphonedb_meta.txt',sep='\t',quote = F,row.names = F)
+#Run in python
+#cellphonedb method statistical_analysis cellphonedb_meta.txt cellphonedb_count.txt --counts-data=gene_name
+#cellphonedb visualization
+#cellphonedb plot dotplot
+#cellphonedb plot heatmap_plot cellphonedb_meta.txt
+setwd('out')
+count_net <- read.delim("count_network.txt", check.names = FALSE)
+inter_net <- read.delim("interaction_count.txt", check.names = FALSE)
+pvalues <- read.delim("pvalues.txt", check.names = FALSE)
+means <- read.delim("means.txt", check.names = FALSE)
+sig.means <- read.delim("significant_means.txt", check.names = FALSE)
+deconvoluted <- read.delim("deconvoluted.txt", check.names = FALSE)
+library(tidyr)
+count_matrix<-spread(count_net, TARGET, count)
+rownames(count_matrix) <- count_matrix$SOURCE
+count_matrix <- count_matrix[, -1]
+count_matrix <- as.matrix(count_matrix)
+library(pheatmap)
+pheatmap(count_matrix, show_rownames = T, show_colnames = T, scale="none", cluster_cols = T,
+border_color='white', cluster_rows = T, fontsize_row = 14, fontsize_col = 14,
+main = "Control", treeheight_row = 0,
+#family = 'Arial',
+color = colorRampPalette(c("dodgerblue4",'peachpuff','deeppink4' ))( 1000 ),
+treeheight_col = 0,
+display_numbers = F, number_color="white",fontsize_number=12,
+number_format="%.0f", legend_labels = c(0,300))
+#ktplots
+sce <- Seurat::as.SingleCellExperiment(TSC_MA)
+rowData(sce)$gene_symbols <- row.names(sce)
+plot_cpdb_heatmap(sce, 'labers', pvalues, cellheight = 20, cellwidth = 20)
+library(ktplots)
+library(viridis)
+library(paletteer)
+library(geometry)
+library(ggrepel)
+plot_cpdb(cell_type1 = 'Micro1', cell_type2 = 'Astro', scdata = TSC_MA,
+idents = 'labers', means = means, pvals = pvalues,
+genes = c('NOTCH2','PDGFB','CMKLR1','WNT5A','COL9A2'),
+custom_gene_family = list("customfamily"=c('NOTCH2','PDGFB','CMKLR1','WNT5A','COL9A2')),
+highlight = paletteer_c("ggthemes::Gray Warm",5,direction = 1),
+col_option = paletteer_c("ggthemes::Orange-Blue Diverging",20,direction = -1),
+highlight_size = 1,
+keep_significant_only=T) +
+theme(axis.text = element_text(size = 8, color = 'black'))
+sce <- Seurat::as.SingleCellExperiment(TSC_MA)
+rowData(sce)$gene_symbols <- row.names(sce)
+p <- plot_cpdb4(interaction = c('','','',.....),
+cell_type1 = 'Micro',
+cell_type2 = 'Astro',
+scdata = sce,
+idents = 'labers',
+means=means,
+pvals=pvalues,
+deconvoluted = deconvoluted,
+keep_significant_only = T
+)

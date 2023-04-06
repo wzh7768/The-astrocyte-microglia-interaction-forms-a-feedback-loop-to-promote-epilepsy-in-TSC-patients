@@ -1,0 +1,39 @@
+#Velocyto analysis
+colP1<-c(
+'hotpink3',
+'gold',
+'darkorange2',
+'deepskyblue',
+'dodgerblue',
+'green3',
+'red'
+)
+sp <- TSC_astro$spliced
+unsp <- TSC_astro$unspliced
+TSC_umap <- TSC_astro@reductions$umap@cell.embeddings
+#ident.colors <- (scales::hue_pal())(n = length(x = levels(x = TSC_astro)))
+ident.colors <- colP1
+names(x = ident.colors) <- levels(x = TSC_astro)
+cell.colors <- ident.colors[Idents(object = TSC_astro)]
+names(x = cell.colors) <- colnames(x = TSC_astro)
+fit.quantile = 0.02
+cell.dist <- as.dist(1-armaCor(t(TSC_astro@reductions$pca@cell.embeddings)))
+rvel.cd <- gene.relative.velocity.estimates(sp,unsp,deltaT=2, kCells=10,
+cell.dist=cell.dist,fit.quantile=fit.quantile,n.cores=10)
+#Visualization
+gg <- UMAPPlot(TSC_astro,cols=colP1)
+colors <- as.list(ggplot_build(gg)$data[[1]]$colour)
+names(colors) <- rownames(TSC_umap)
+show.velocity.on.embedding.cor(TSC_umap,rvel.cd,n=30,scale='sqrt',
+cell.colors=ac(colors,alpha=0.5),
+cex=0.8,arrow.scale=2,
+show.grid.flow=T,min.grid.cell.mass=1.0,
+grid.n=50,arrow.lwd=1,do.par=F,
+cell.border.alpha =0.1,USE_OPENMP=1,
+n.cores=10,main="Cell Velocity")
+gene <- " "
+emb <- TSC_astro
+gene.relative.velocity.estimates(sp,unsp,deltaT=1,kCells = 100,kGenes=1,
+fit.quantile=fit.quantile,
+#cell.emb=emb,
+cell.colors=cell.colors,cell.dist=cell.dist,show.gene=gene,do.par=T)

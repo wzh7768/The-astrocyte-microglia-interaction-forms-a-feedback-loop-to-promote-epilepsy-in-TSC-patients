@@ -1,0 +1,36 @@
+#GSEA analysis
+cluster2.markers <- FindMarkers(TSC_astro, ident.1 = 2, ident.2=c(3,5),min.pct = 0.01,logfc.threshold = 0.01)
+#marker基因GO分析
+genedata <- cluster2.markers
+genedata <- genedata[genedata$p_val<0.05,c(1,2)]
+genedata$genes <- rownames(genedata)
+genedata <- data.frame(ID=genedata$genes,logFC=genedata$avg_log2FC)
+DE_1_gene <- genedata$ID
+DE_1_gene <- as.character(DE_1_gene)
+entrez_genes <- bitr(DE_1_gene, fromType="SYMBOL",
+toType="ENTREZID",
+OrgDb="org.Hs.eg.db")
+#BP
+GO_1 <- enrichGO(gene=entrez_genes$ENTREZID,
+OrgDb = 'org.Hs.eg.db',
+ont='BP',
+pAdjustMethod = 'BH',
+pvalueCutoff = 0.01,
+qvalueCutoff = 0.05,
+readable = T)
+GOres <-GO_1@result
+GOplot <- GOres[,c(1,2,6,8)]
+geneID <- str_replace_all(GOplot$geneID,'/',',')
+GOplot$vx <- geneID
+GOplot <- subset(GOplot,select=-geneID)
+colnames(GOplot) <- c('ID','Term','adj_pval','Genes')
+GOplot$Category = "BP"
+circ_BP <- GOplot::circle_dat(GOplot,genedata)
+circ_BP <- circ_BP[circ_BP$adj_pval<0.05,]
+circ_BP_func <-circ_BP[circ_BP$zscore>1,]
+save(circ_BP,file='C1_BP.Rata')
+#Visualization
+circ_BPpic <-circ_BP[c(
+#Select items with a p-value less than 0.05
+),]
+GOCircle(circ_BPpic,zsc.col = c('firebrick3', 'white', 'royalblue3'))

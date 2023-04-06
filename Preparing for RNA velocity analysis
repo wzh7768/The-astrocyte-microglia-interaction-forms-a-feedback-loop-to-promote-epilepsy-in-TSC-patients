@@ -1,0 +1,6 @@
+#To prepare RNA velocity analysis, generate loom files using the velocyto package with Python
+conda activate velocyto
+cellranger_outDir=Control1
+cellranger_gtf=refdata-gex-GRCh38-2020-A/genes/genes.gtf
+rmsk_gtf=repeat_rmsk.gtf
+velocyto run10x -m $rmsk_gtf $cellranger_outDir $cellranger_gtf

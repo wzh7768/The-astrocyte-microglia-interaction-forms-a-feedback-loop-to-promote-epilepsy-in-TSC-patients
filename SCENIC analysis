@@ -1,0 +1,108 @@
+#SCENIC analysis
+library(SCENIC)
+library(doParallel)
+library(arrow)
+library(doParallel)
+library(SCopeLoomR)
+DimPlot(TSC_astro, label = T)
+DimPlot(TSC_astro, group.by = "orig.ident",cols = c('dodgerblue3','red','darkorange','green4','gold'),pt.size = 0.05)
+exprMat <- as.matrix(TSC_astro@assays$RNA@data)
+dim(exprMat)
+exprMat[1:4,1:4]
+cellInfo <- TSC_astro@meta.data[,c(15,3,2)]
+colnames(cellInfo)=c('CellType', 'nGene' ,'nUMI')
+head(cellInfo)
+table(cellInfo$CellType)
+#Set up the analysis environment
+mydbDIR <- "/home/weizhihao/Desktop/cisTarget_databases"
+dir(mydbDIR)
+mydbs <- c("hg38__refseq-r80__500bp_up_and_100bp_down_tss.mc9nr.feather",
+"hg38__refseq-r80__10kb_up_and_down_tss.mc9nr.feather")
+names(mydbs) <- c("500bp", "10kb")
+scenicOptions <- initializeScenic(org="hgnc",
+nCores=16,
+dbDir=mydbDIR,
+dbs = mydbs,
+datasetTitle = "HUMAN")
+saveRDS(scenicOptions,file="int/1.1_genesKept.Rds")
+#Co-expression network
+genesKept <- geneFiltering(exprMat, scenicOptions)
+exprMat_filtered <- exprMat[genesKept, ]
+exprMat_filtered[1:4,1:4]
+runCorrelation(exprMat_filtered, scenicOptions)
+exprMat_filtered_log <- log2(exprMat_filtered+1)
+runGenie3(exprMat_filtered_log, scenicOptions)
+#Build and score the GRN
+exprMat_log <- log2(exprMat+1)
+scenicOptions@settings$dbs <- scenicOptions@settings$dbs["10kb"]
+scenicOptions <- runSCENIC_1_coexNetwork2modules(scenicOptions)
+#scenicOptions <- readRDS('int/1.1_genesKept.Rds')
+scenicOptions <- runSCENIC_2_createRegulons(scenicOptions,coexMethod=c("top5perTarget"))
+#scenicOptions <- readRDS('int/1.1_genesKept.Rds')
+scenicOptions <- initializeScenic(org="hgnc",
+nCores=1,
+dbDir=mydbDIR)
+scenicOptions <- runSCENIC_3_scoreCells(scenicOptions, exprMat_log )
+#scenicOptions <- readRDS('int/1.1_genesKept.Rds')
+scenicOptions <- runSCENIC_4_aucell_binarize(scenicOptions)
+#scenicOptions <- readRDS('int/1.1_genesKept.Rds')
+tsneAUC(scenicOptions, aucType="AUC")
+#export2loom(scenicOptions, exprMat)
+saveRDS(scenicOptions, file="int/scenicOptions.Rds")
+#Visualization
+scenicOptions <- readRDS('int/scenicOptions.Rds')
+motifEnrichment_selfMotifs_wGenes <- loadInt(scenicOptions, "motifEnrichment_selfMotifs_wGenes")
+as.data.frame(sort(table(motifEnrichment_selfMotifs_wGenes$highlightedTFs),decreasing = T))
+#Visualize the motif sequences of a specific gene
+tableSubset <- motifEnrichment_selfMotifs_wGenes[highlightedTFs=="RORB"]
+viewMotifs(tableSubset)
+regulonTargetsInfo <- loadInt(scenicOptions, "regulonTargetsInfo")
+tableSubset <- regulonTargetsInfo[TF=="JUN" & highConfAnnot==TRUE]
+viewMotifs(tableSubset)
+#regulons AUC
+AUCmatrix <- readRDS("int/3.4_regulonAUC.Rds")
+AUCmatrix <- AUCmatrix@assays@data@listData$AUC
+AUCmatrix <- data.frame(t(AUCmatrix),check.names = F)
+RegulonName_AUC <- colnames(AUCmatrix)
+RegulonName_AUC <- gsub(' \(','',RegulonName_AUC)
+RegulonName_AUC <- gsub('\)','',RegulonName_AUC)
+colnames(AUCmatrix) <- RegulonName_AUC
+scRNAauc <- AddMetaData(TSC_astro,AUCmatrix)
+scRNAauc@assays$integrated <- NULL
+saveRDS(scRNAauc,'astro_auc.rds')
+FeaturePlot(scRNAauc,features = 'RORB_14g',label=T,reduction = 'umap')
+FeaturePlot(object = scRNAauc,
+features ='',
+cols= colorRampPalette(c('#006B7B','#18AF6E','#F6D704'))(5),
+reduction = "umap",
+pt.size = 1.5)
+#regulon AUC
+BINmatrix <- readRDS("int/4.1_binaryRegulonActivity.Rds")
+BINmatrix <- data.frame(t(BINmatrix),check.names = F)
+RegulonName_BIN <- colnames(BINmatrix)
+RegulonName_BIN <- gsub(' \(','',RegulonName_BIN)
+RegulonName_BIN <- gsub('\)','',RegulonName_BIN)
+colnames(BINmatrix) <- RegulonName_BIN
+scRNAbin <- AddMetaData(TSC_astro,BINmatrix)
+scRNAbin@assays$integrated <- NULL
+saveRDS(scRNAbin,'micro_astro_bin.rds')
+FeaturePlot(scRNAbin,features = 'REL._29g',label=T,reduction = 'umap')
+#heatmap
+library(pheatmap)
+AUC <- merge(AUCmatrix,cellInfo,by='row.names')
+rownames(AUC) <-AUC[,1]
+Ast_s <-scale(Ast,center = T,scale = T)
+ann_colors <- list(group=c(Astro1='darkorange',Astro2='gold',Astro3='deepskyblue',
+Astro7='green3',Astro6='hotpink3',Astro4='dodgerblue',
+Astro5='red'
+))
+library(paletteer)
+library(RColorBrewer)
+coul <- colorRampPalette(brewer.pal(9, "OrRd"))(50)
+pheatmap(Ast_s,
+color = coul,
+annotation_col = col_ann,
+annotation_colors = ann_colors,
+cluster_cols = F,
+show_colnames = F,
+gaps_col = ...)

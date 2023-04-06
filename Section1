@@ -1,0 +1,11 @@
+#To convert fastq format snRNA-seq data to cellranger format, run the following command in the Linux shell terminal
+bin=~/cellranger-7.0.0/bin/cellranger
+db=./refdata-gex-GRCh38-2020-A
+fq_dir=./Desktop/control
+$bin count --id=Control1
+--localcores=10
+--transcriptome=$db
+--fastqs=$fq_dir
+--sample=Control1
+--expect-cells=5000
+--nosecondary
